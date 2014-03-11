@@ -42,9 +42,9 @@ var ViewModel = function () {
         var select = self.select();
         var orderBy = self.orderBy();
         return [
-            groupBy ? "groupby(new (" + groupBy + "))" : "",
-            select ? "select(new (" + select + "))" : "",
-            orderBy ? "orderBy([" + orderBy + "])" : ""
+            groupBy ? "groupby(" + groupBy + ")" : "",
+            select ? "select(" + select + ")" : "",
+            orderBy ? "orderBy(" + orderBy + ")" : ""
         ]
         .filter(function (a) {return a;})
         .join(".");
@@ -54,8 +54,7 @@ var ViewModel = function () {
 
 
     var parsedData = ko.computed(function () {
-        //LinqParser(self.query())(data);
-        return data;
+        return LinqQuery(self.query())(data);
     });
 
     this.gridOptions = {
