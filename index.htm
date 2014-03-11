@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>KoGrid with Queries!</title>
+    <link rel="stylesheet" type="text/css" href="lib/kogrid.css">
+</head>
+<body>
+
+<div style="height: 25%; width: 100%; position: absolute;">
+    
+    GroupBy: <input type="text" data-bind="value: groupBy">
+    Select: <input type="text" data-bind="value: select">
+    OrderBy: <input type="text" data-bind="value: orderBy"><br>
+    Query: <input type="text" data-bind="value: query">
+</div>
+<div style="top: 25%; height: 75%; width: 100%; position: absolute;" data-bind="koGrid: gridOptions">
+</div>
+<script type="text/javascript" src="lib/knockout-2.2.0.js"></script>
+<script type="text/javascript" src="lib/jquery-1.8.2.min.js"></script>
+<script type="text/javascript" src="lib/koGrid-2.1.1.debug.js"></script>
+<script type="text/javascript" src="linqParser.js"></script>
+<script type="text/javascript" src="dummyData.js"></script>
+
+<script type="text/javascript">
+// Main app code here
+
+var ViewModel = function () {
+    var self = this;
+    var data = peopleData();
+
+    // groupBy, select, and orderBy are shortcuts to create a more user understandable query
+    this.groupBy = ko.observable();
+    this.select = ko.observable();
+    this.orderBy = ko.observable();
+
+    // query is the full query string which will be parsed by linqParser, it shows the user what their
+    // simple query looks like and allows the user to enter more complex queries
+    this.query = ko.observable();
+
+    ko.computed(function () {
+        var groupBy = self.groupBy();
+        var select = self.select();
+        var orderBy = self.orderBy();
+        return [
+            groupBy ? "groupby(new (" + groupBy + "))" : "",
+            select ? "select(new (" + select + "))" : "",
+            orderBy ? "orderBy([" + orderBy + "])" : ""
+        ]
+        .filter(function (a) {return a;})
+        .join(".");
+    }).subscribe(function (val) {
+        self.query(val);
+    });
+
+
+    var parsedData = ko.computed(function () {
+        //LinqParser(self.query())(data);
+        return data;
+    });
+
+    this.gridOptions = {
+        data: parsedData
+    };
+};
+
+ko.applyBindings(new ViewModel());
+
+</script>
+
+</body>
+</html>
