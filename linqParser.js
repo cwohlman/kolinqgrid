@@ -16,6 +16,7 @@ function LinqQuery(userQuery) {
 		operation, // The current operation - will be added to the query stack at the end of the parseOperation method
 		token, // a string containing the current token to process
 		pos = 0,
+		expression,
 		next = userQuery[pos],
 		identifierRegex = /[A-Za-z_]/; // current index in userQuery
 
@@ -32,16 +33,18 @@ function LinqQuery(userQuery) {
 			if (typeof method != "function") throw new Error("Unrecognized method: " + a.method.toLowerCase());
 			result = method(result, a.args);
 		});
+		// Hack to make grouped items readable
+		if (result[0] instanceof Array && result[0].key) result = result.map(function (a) {
+			return a.key;
+		});
 		return result;
 	};
-
 	// Functions
 	function parseOperation() {
 		// we are at start of string, or following the dot after the last operation
 		parseIdentifier();
 
 		if (!token) throw new Error("No operation");
-		
 		operation = {
 			method: token,
 			args: []
@@ -49,9 +52,11 @@ function LinqQuery(userQuery) {
 
 		expectOpenParen();
 
-		parseOperationArguments();
+		if (!parseCloseParen()) {
+			parseOperationArguments();
 
-		expectCloseParen();
+			expectCloseParen();
+		}
 
 		query.push(operation);
 	}
@@ -75,7 +80,8 @@ function LinqQuery(userQuery) {
 		name = name.replace(".", "_");
 		operation.args.push({
 			name: name,
-			source: source
+			source: source,
+			expression: expression
 		});
 	}
 
@@ -112,7 +118,22 @@ function LinqQuery(userQuery) {
 		}
 		return false;
 	}
-
+	function parseOpenParen() {
+		parseWhiteSpace();
+		if (next == "(") {
+			readNext();
+			return true;
+		}
+		return false;
+	}
+	function parseCloseParen() {
+		parseWhiteSpace();
+		if (next == ")") {
+			readNext();
+			return true;
+		}
+		return false;
+	}
 	function expectOpenParen() {
 		parseWhiteSpace();
 		if (next != "(") throw new Error("Open Paren Expected");
@@ -128,10 +149,30 @@ function LinqQuery(userQuery) {
 
 	function parseExpression () {
 		parseIdentifier();
-		var result = token;
-		while (parseDot()) {
-			parseIdentifier();
-			result += "." + token;
+		var result = token,
+			outerToken = token,
+			innerExpression;
+		if (parseDot()) {
+			result += ".";
+			parseExpression()
+			result += token;
+			innerExpression = expression;
+			expression = function (a) {
+				return innerExpression(a && a[outerToken]);
+			}
+		} else if (parseOpenParen()) {
+			result += "(";
+			if (!parseCloseParen()) { 
+				parseExpression() // we only parse the inner expression so we know when we're out of it.
+				result += token;
+				expectCloseParen();
+			}
+			result += ")";
+			expression = LinqQuery(result);
+		} else {
+			expression = function (a) {
+				return a && a[outerToken];
+			};
 		}
 		token = result;
 	}
@@ -167,7 +208,7 @@ LinqQuery.select = function (data, args) {
 	return data.map(function (a) {
 		var result = {};
 		args.forEach(function (arg) {
-			result[arg.name] = LinqQuery.getProperty(a, arg.source);
+			result[arg.name] = arg.expression(a);
 		});
 		return result;
 	});
@@ -176,9 +217,9 @@ LinqQuery.select = function (data, args) {
 LinqQuery.orderby = function (data, args) {
 	return data.sort(function (a, b) {
 		for (var i = 0; i < args.length; i++) {
-			var source = args[i].source;
-			if (LinqQuery.getProperty(a, source) > LinqQuery.getProperty(b, source)) return 1;
-			if (LinqQuery.getProperty(b, source) > LinqQuery.getProperty(a, source)) return -1;
+			var expression = args[i].expression;
+			if (expression(a) > expression(b)) return 1;
+			if (expression(b) > expression(a)) return -1;
 		};
 		return 0;
 	});
@@ -190,17 +231,19 @@ LinqQuery.groupby = function (data, args) {
 	data.forEach(function (a) {
 		var key = {};
 		args.forEach(function (arg) {
-			key[arg.name] = LinqQuery.getProperty(a, arg.source);
+			key[arg.name] = arg.expression(a);
 		});
 		key = JSON.stringify(key); // Not necessarily the most performant way to do this
 		groupings[key] = groupings[key] || [];
 		groupings[key].push(a);
 	});
 	for (var prop in groupings) {
-		result.push({
-			key: JSON.parse(prop),
-			items: groupings[prop]
-		});
+		groupings[prop].key = JSON.parse(prop);
+		result.push(groupings[prop]);
 	}
 	return result;
+}
+
+LinqQuery.count = function (data, args) {
+	if (!args.length) return data.length;
 }

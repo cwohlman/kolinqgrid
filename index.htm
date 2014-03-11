@@ -58,7 +58,11 @@ var ViewModel = function () {
     this.parsedData = ko.computed(function () {
         try
         {
-            return LinqQuery(self.query())(data);
+            var result = LinqQuery(self.query())(data);
+            if (!(result instanceof Array)) result = [{
+                expression: result
+            }];
+            return result;
         } catch (err) {
             return [
                 {
