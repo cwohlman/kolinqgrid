@@ -24,8 +24,15 @@ function LinqQuery(userQuery) {
 		parseOperation();
 	}
 
-	// DEBUG HACK!
-	window.query = query; return function (data) {return data;};
+	return function (data) {
+		var result = data;
+		query.forEach(function (a) {
+			var method = LinqQuery[a.method.toLowerCase()];
+			if (typeof method != "function") throw new Error("Unrecognized method: " + a.method.toLowerCase());
+			result = method(result, a.args);
+		});
+		return result;
+	};
 
 	// Functions
 	function parseOperation() {
@@ -133,4 +140,46 @@ function LinqQuery(userQuery) {
 		pos++;
 		next = userQuery[pos];
 	}
+}
+
+LinqQuery.select = function (data, args) {
+	return data.map(function (a) {
+		var result = {};
+		args.forEach(function (arg) {
+			result[arg.name] = a[arg.source];
+		});
+		return result;
+	});
+}
+
+LinqQuery.orderby = function (data, args) {
+	return data.sort(function (a, b) {
+		for (var i = 0; i < args.length; i++) {
+			var source = args[i].source;
+			if (a[source] > b[source]) return 1;
+			if (b[source] > a[source]) return -1;
+		};
+		return 0;
+	});
+}
+
+LinqQuery.groupby = function (data, args) {
+	var groupings = {},
+		result = [];
+	data.forEach(function (a) {
+		var key = {};
+		args.forEach(function (arg) {
+			key[arg.name] = a[arg.source];
+		});
+		key = JSON.stringify(key); // Not necessarily the most performant way to do this
+		groupings[key] = groupings[key] || [];
+		groupings[key].push(a);
+	});
+	for (var prop in groupings) {
+		result.push({
+			key: JSON.parse(prop),
+			items: groupings[prop]
+		});
+	}
+	return result;
 }

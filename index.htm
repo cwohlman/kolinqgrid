@@ -13,7 +13,9 @@
     OrderBy: <input type="text" data-bind="value: orderBy"><br>
     Query: <input type="text" data-bind="value: query">
 </div>
-<div style="top: 25%; height: 75%; width: 100%; position: absolute;" data-bind="koGrid: gridOptions">
+<div data-bind = "with: gridOptions">
+<div style="top: 25%; height: 75%; width: 100%; position: absolute;" data-bind="koGrid: $data">
+</div>
 </div>
 <script type="text/javascript" src="lib/knockout-2.2.0.js"></script>
 <script type="text/javascript" src="lib/jquery-1.8.2.min.js"></script>
@@ -53,13 +55,26 @@ var ViewModel = function () {
     });
 
 
-    var parsedData = ko.computed(function () {
-        return LinqQuery(self.query())(data);
+    this.parsedData = ko.computed(function () {
+        try
+        {
+            return LinqQuery(self.query())(data);
+        } catch (err) {
+            return [
+                {
+                    error: err
+                }
+            ];
+        }
+        
     });
 
-    this.gridOptions = {
-        data: parsedData
-    };
+    this.gridOptions = ko.computed(function () {
+        self.parsedData();
+        return {
+            data: self.parsedData
+        };
+    });
 };
 
 ko.applyBindings(new ViewModel());
