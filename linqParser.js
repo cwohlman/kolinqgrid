@@ -16,7 +16,8 @@ function LinqQuery(userQuery) {
 		operation, // The current operation - will be added to the query stack at the end of the parseOperation method
 		token, // a string containing the current token to process
 		pos = 0,
-		next = userQuery[pos]; // current index in userQuery
+		next = userQuery[pos],
+		identifierRegex = /[A-Za-z_]/; // current index in userQuery
 
 	parseOperation();
 	
@@ -64,13 +65,14 @@ function LinqQuery(userQuery) {
 	}
 
 	function parseOperationArg() {
-		parseIdentifier();
+		parseExpression();
 		var source = token, name = token;
 		parseWhiteSpace();
 		if (parseAs()) {
 			parseIdentifier();
 			name = token;
 		}
+		name = name.replace(".", "_");
 		operation.args.push({
 			name: name,
 			source: source
@@ -87,7 +89,7 @@ function LinqQuery(userQuery) {
 
 	function parseAs() {
 		parseWhiteSpace();
-		if (next.match(/[A-Za-z]/)) parseIdentifier();
+		if (next.match(identifierRegex)) parseIdentifier();
 		else return false;
 		if (token.toLowerCase() != "as") throw new Error("Expected as");
 		else return true;
@@ -124,11 +126,21 @@ function LinqQuery(userQuery) {
 		return;
 	}
 
+	function parseExpression () {
+		parseIdentifier();
+		var result = token;
+		while (parseDot()) {
+			parseIdentifier();
+			result += "." + token;
+		}
+		token = result;
+	}
+
 	function parseIdentifier() {
 		parseWhiteSpace();
 		token = "";
 		// parse until we run out of identifier chars
-		while (next && next.match(/[a-zA-Z]/)) readNext(); // TODO: a more permisive regex
+		while (next && next.match(identifierRegex)) readNext(); // TODO: a more permisive regex
 
 		if (!token) throw new Error("Expected identifier");
 
@@ -142,11 +154,20 @@ function LinqQuery(userQuery) {
 	}
 }
 
+LinqQuery.getProperty = function (instance, propertyPath) {
+	var pathParts = propertyPath.split(".");
+	if (pathParts.length == 0) throw new Error("No property path specified");
+	pathParts.forEach(function (a) {
+		instance = instance && instance[a];
+	});
+	return instance;
+}
+
 LinqQuery.select = function (data, args) {
 	return data.map(function (a) {
 		var result = {};
 		args.forEach(function (arg) {
-			result[arg.name] = a[arg.source];
+			result[arg.name] = LinqQuery.getProperty(a, arg.source);
 		});
 		return result;
 	});
@@ -156,8 +177,8 @@ LinqQuery.orderby = function (data, args) {
 	return data.sort(function (a, b) {
 		for (var i = 0; i < args.length; i++) {
 			var source = args[i].source;
-			if (a[source] > b[source]) return 1;
-			if (b[source] > a[source]) return -1;
+			if (LinqQuery.getProperty(a, source) > LinqQuery.getProperty(b, source)) return 1;
+			if (LinqQuery.getProperty(b, source) > LinqQuery.getProperty(a, source)) return -1;
 		};
 		return 0;
 	});
@@ -169,7 +190,7 @@ LinqQuery.groupby = function (data, args) {
 	data.forEach(function (a) {
 		var key = {};
 		args.forEach(function (arg) {
-			key[arg.name] = a[arg.source];
+			key[arg.name] = LinqQuery.getProperty(a, arg.source);
 		});
 		key = JSON.stringify(key); // Not necessarily the most performant way to do this
 		groupings[key] = groupings[key] || [];
