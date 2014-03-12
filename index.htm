@@ -25,7 +25,7 @@
             <p>You could <a data-bind="click: group_example">group everyone by age</a> to see our population distribution</p>
             <p>You could <a data-bind="click: sort_example">sort by age</a> or see which <a data-bind="click: age_example">age group has the smallest population</a></p>
             <p>You could create a really <a data-bind="click: complex_example">complex query</a> that groups and selects multiple times</p>
-            <div class="alert alert-warning"><b>Heads Up!</b> This is just an experimental prototype. Several key features don't work, such as +, - operators.</div>
+            <div class="alert alert-warning"><b>Heads Up!</b> This is just an experimental prototype.<br> Several key features don't work, such as +, - operators.</div>
         </div>
         <div class="span4">
             <h4>Try your own:</h4>
@@ -71,7 +71,7 @@ var ViewModel = function () {
 
     // groupBy, select, and orderBy are shortcuts to create a more user understandable query
     this.groupBy = ko.observable();
-    this.select = ko.observable();
+    this.select = ko.observable("title, age, salary");
     this.orderBy = ko.observable();
     this.raw_example = function () {
         self.groupBy("");
@@ -107,7 +107,6 @@ var ViewModel = function () {
     // query is the full query string which will be parsed by linqParser, it shows the user what their
     // simple query looks like and allows the user to enter more complex queries
     this.query = ko.observable();
-
     ko.computed(function () {
         var groupBy = self.groupBy();
         var select = self.select();
@@ -123,7 +122,7 @@ var ViewModel = function () {
         self.query(val);
     });
 
-
+    this.orderBy("age");
     this.parsedData = ko.computed(function () {
         try
         {
