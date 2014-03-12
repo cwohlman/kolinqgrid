@@ -2,20 +2,59 @@
 <html>
 <head>
     <title>KoGrid with Queries!</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="lib/kogrid.css">
+    <link rel="stylesheet" type="text/css" href="lib/css/bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="lib/css/boostrap-responsive.css">
 </head>
-<body>
-
-<div style="height: 25%; width: 100%; position: absolute;">
-    
-    GroupBy: <input type="text" data-bind="value: groupBy">
-    Select: <input type="text" data-bind="value: select">
-    OrderBy: <input type="text" data-bind="value: orderBy"><br>
-    Query: <input type="text" data-bind="value: query">
+<body style="padding-top: 60px">
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="#">Javascript based Linq-style Queries</a>
+      </div>
+  </div>
 </div>
-<div data-bind = "with: gridOptions">
-<div style="top: 25%; height: 75%; width: 95%; position: absolute;" data-bind="koGrid: $data">
-</div>
+<div class="container">
+    <div class="row">
+        <div class="span8">
+            <h3>Linq Style Queries:</h3>
+            <p>Linq-style queries on a javascript array can yield some useful results. Here we have some example data which includes name, age, salary and a few more fields for us to experiment with.</p>
+            <p>You can start by looking at the <a data-bind="click: raw_example" href="">raw data</a> to see what we're working from</p>
+            <p>You could count <a data-bind="click: freelancers_example">freelancers by title</a></p>
+            <p>You could <a data-bind="click: group_example">group everyone by age</a> to see our population distribution</p>
+            <p>You could <a data-bind="click: sort_example">sort by age</a> or see which <a data-bind="click: age_example">age group has the smallest population</a></p>
+            <p>You could create a really <a data-bind="click: complex_example">complex query</a> that groups and selects multiple times</p>
+            <div class="alert alert-warning"><b>Heads Up!</b> This is just an experimental prototype. Several key features don't work, such as +, - operators.</div>
+        </div>
+        <div class="span4">
+            <h4>Try your own:</h4>
+            <div class="">     
+                <div class="" style="float: right;">
+                    GroupBy: 
+                    <input type="text" data-bind="value: groupBy">
+                </div> 
+                <div class="" style="float: right;">
+                    Select: 
+                    <input type="text" data-bind="value: select">
+                </div>
+                <div class="" style="float: right;">
+                    OrderBy: 
+                    <input type="text" data-bind="value: orderBy">
+                </div>
+                <div class="" style="float: right;">
+                    Query: 
+                    <textarea data-bind="value: query"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div data-bind = "with: gridOptions">
+            <div  class="span12" style="height: 55%; position: absolute;" data-bind="koGrid: $data">
+            </div>
+        </div>
+    </div>
 </div>
 <script type="text/javascript" src="lib/knockout-2.2.0.js"></script>
 <script type="text/javascript" src="lib/jquery-1.8.2.min.js"></script>
@@ -34,7 +73,37 @@ var ViewModel = function () {
     this.groupBy = ko.observable();
     this.select = ko.observable();
     this.orderBy = ko.observable();
-
+    this.raw_example = function () {
+        self.groupBy("");
+        self.select("");
+        self.orderBy("");
+    };
+    this.freelancers_example = function () {
+        self.groupBy("title");
+        self.select("key.title as title, count(freelancer) as freelancers");
+        self.orderBy("");
+    };
+    this.group_example = function () {
+        self.groupBy("age");
+        self.select("key.age as age, count() as people");
+        self.orderBy("");
+    };
+    this.sort_example = function () {
+        self.groupBy("age");
+        self.select("key.age as age, count() as people");
+        self.orderBy("age");
+    };
+    this.age_example = function () {
+        self.groupBy("age");
+        self.select("key.age as age, count() as people");
+        self.orderBy("people");
+    };
+    this.complex_example = function () {
+        self.groupBy("");
+        self.select("");
+        self.orderBy("");
+        self.query("groupby(title, age).select(key.title as title, key.age as age, count() as count).groupby(title).select(key.title as title, average(age) as avgAge, sum(count) as count)")
+    };
     // query is the full query string which will be parsed by linqParser, it shows the user what their
     // simple query looks like and allows the user to enter more complex queries
     this.query = ko.observable();
@@ -44,9 +113,9 @@ var ViewModel = function () {
         var select = self.select();
         var orderBy = self.orderBy();
         return [
-            groupBy ? "groupby(" + groupBy + ")" : "",
-            select ? "select(" + select + ")" : "",
-            orderBy ? "orderBy(" + orderBy + ")" : ""
+        groupBy ? "groupby(" + groupBy + ")" : "",
+        select ? "select(" + select + ")" : "",
+        orderBy ? "orderBy(" + orderBy + ")" : ""
         ]
         .filter(function (a) {return a;})
         .join(".");
@@ -59,15 +128,19 @@ var ViewModel = function () {
         try
         {
             var result = LinqQuery(self.query())(data);
+            // Hack to make grouped items readable
+            if (result && result[0] instanceof Array && result[0].key) result = result.map(function (a) {
+                return a.key;
+            });
             if (!(result instanceof Array)) result = [{
                 expression: result
             }];
             return result;
         } catch (err) {
             return [
-                {
-                    error: err
-                }
+            {
+                error: err
+            }
             ];
         }
         

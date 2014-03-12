@@ -34,7 +34,7 @@ function LinqQuery(userQuery) {
 			result = method(result, a.args);
 		});
 		// Hack to make grouped items readable
-		if (result[0] instanceof Array && result[0].key) result = result.map(function (a) {
+		if (result && result[0] instanceof Array && result[0].key) result = result.map(function (a) {
 			return a.key;
 		});
 		return result;
@@ -244,6 +244,24 @@ LinqQuery.groupby = function (data, args) {
 	return result;
 }
 
+LinqQuery.sum = function (data, args) {
+	var sum = 0;
+	data.forEach(function (a) {
+		var val = args[0].expression(a);
+		sum += val;
+	});
+	return sum;
+}
+
+LinqQuery.average = function (data, args) {
+	return LinqQuery.sum(data, args) / LinqQuery.count(data, []);
+}
+
+LinqQuery.where = function (data, args) {
+	return data.filter(args[0].expression);
+}
+
 LinqQuery.count = function (data, args) {
 	if (!args.length) return data.length;
+	else return LinqQuery.where(data, args).length;
 }
